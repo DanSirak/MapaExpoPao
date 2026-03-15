@@ -1,20 +1,20 @@
 import express from 'express';
 import cors from 'cors';
-import Database from 'better-sqlite3';
+import pg from 'pg';
 import rateLimit from 'express-rate-limit';
 import { randomUUID } from 'crypto';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
 import 'dotenv/config';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
+const pool = new pg.Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.DATABASE_URL?.includes('railway') ? { rejectUnauthorized: false } : false,
+});
 
-const db = new Database(join(__dirname, 'markers.db'));
-db.exec(`
+await pool.query(`
   CREATE TABLE IF NOT EXISTS markers (
     id TEXT PRIMARY KEY,
-    lat REAL NOT NULL,
-    lng REAL NOT NULL,
+    lat DOUBLE PRECISION NOT NULL,
+    lng DOUBLE PRECISION NOT NULL,
     message TEXT NOT NULL,
     created_at TEXT NOT NULL
   )
@@ -28,19 +28,17 @@ app.use(cors(ALLOWED_ORIGIN ? { origin: ALLOWED_ORIGIN } : {}));
 app.use(express.json());
 
 const submitLimit = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hora
-  max: 10,                   // 10 envíos por IP por hora
+  windowMs: 60 * 60 * 1000,
+  max: 10,
   message: { error: 'Demasiados envíos. Inténtalo más tarde.' },
 });
 
-// GET /api/markers — público, cualquiera puede ver los puntos
-app.get('/api/markers', (req, res) => {
-  const markers = db.prepare('SELECT * FROM markers ORDER BY created_at ASC').all();
-  res.json(markers);
+app.get('/api/markers', async (_req, res) => {
+  const result = await pool.query('SELECT * FROM markers ORDER BY created_at ASC');
+  res.json(result.rows);
 });
 
-// POST /api/markers — requiere token y pasa por rate limit
-app.post('/api/markers', submitLimit, (req, res) => {
+app.post('/api/markers', submitLimit, async (req, res) => {
   const { lat, lng, message, token } = req.body;
 
   if (SUBMIT_TOKEN && token !== SUBMIT_TOKEN) {
@@ -63,21 +61,20 @@ app.post('/api/markers', submitLimit, (req, res) => {
     created_at: new Date().toISOString(),
   };
 
-  db.prepare(`
-    INSERT INTO markers (id, lat, lng, message, created_at)
-    VALUES (@id, @lat, @lng, @message, @created_at)
-  `).run(marker);
+  await pool.query(
+    'INSERT INTO markers (id, lat, lng, message, created_at) VALUES ($1, $2, $3, $4, $5)',
+    [marker.id, marker.lat, marker.lng, marker.message, marker.created_at]
+  );
 
   res.status(201).json(marker);
 });
 
-// DELETE /api/markers/:id — requiere token
-app.delete('/api/markers/:id', (req, res) => {
+app.delete('/api/markers/:id', async (req, res) => {
   const { token } = req.body ?? {};
   if (SUBMIT_TOKEN && token !== SUBMIT_TOKEN) {
     return res.status(403).json({ error: 'Token inválido.' });
   }
-  db.prepare('DELETE FROM markers WHERE id = ?').run(req.params.id);
+  await pool.query('DELETE FROM markers WHERE id = $1', [req.params.id]);
   res.status(204).end();
 });
 
