@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mapa de puntos</title>
+    <link rel="stylesheet" href="src/style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <div id="map"></div>
+      <div id="info-panel">
+        <h2>Mapa de puntos</h2>
+        <p class="hint">Haz click en el mapa para añadir un punto</p>
+        <p class="hint">Haz click en un punto para ver que dice</p>
+        <div id="coords-display" class="hidden">
+          <div class="coord-row">
+            <span class="coord-label">Latitud</span>
+            <span id="lat-value" class="coord-value">—</span>
+          </div>
+          <div class="coord-row">
+            <span class="coord-label">Longitud</span>
+            <span id="lng-value" class="coord-value">—</span>
+          </div>
+        </div>
+
+        <div id="form-section" class="hidden">
+          <label for="message-input">Mensaje</label>
+          <textarea id="message-input" placeholder="Describe este punto..."></textarea>
+          <div class="btn-row">
+            <button id="submit-btn">Guardar</button>
+            <button id="cancel-btn">Cancelar</button>
+          </div>
+          <p id="status-msg" class="status"></p>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="src/main.js"></script>
+  </body>
+</html>
